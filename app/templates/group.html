@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}Group{% endblock %}
+
+
+{% block page_content %}
+<div class="page-header">
+    <div>
+        <div class="left">
+            <div class="group-member">
+                <h4>Add New Member</h4>
+                <form action="/add/member/{{ group_member[0].group.id }}" method="post" enctype="multipart/form-data">
+                    <label>Member:</label><select name="user-list" id="user-list"></select>
+                    <input type = "submit" value = "Add Member" id = "add-group" />
+                </form>
+                <hr>
+                <div><h4>Delete Member</h4></div>
+                    <form action="delete/member" method="post" enctype="multipart/form-data">
+                        <label>Member:</label>
+                        <select name="member-list" id="member-list">
+                            {% for member in group_member %}
+                                {% if member.role.name == 'User' %}
+                                    <option>{{ member.username }}</option>
+                                {% endif %}
+                            {% endfor %}
+                        </select>
+                        <input type = "submit" value = "Delete Member" id = "delete-member" />
+                    </form>
+                </div>
+                <hr>
+                <h4>Group Member</h4>
+                <select class="member" id="member" size="6">
+                    {% for member in group_member %}
+                        <option>
+                            {{ member.username }} ||
+                            {% if member.role.name == 'User' %}
+                                <span id="role-user" >group member</span>
+                            {% else %}
+                                <span id="role-moderator">group leader</span>
+                            {% endif %}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        {% if group_member[0].group.upload is not none %}
+            <div id="config-info">
+                <p> <h4>Data Analysis: </h4><br />
+                    <input type="checkbox" id="user-predict" name="user predict" checked />User Predict<br />
+                    <input type="checkbox" id="mean" name="mean" />Mean<br />
+                    <input type="checkbox" id="median" name="median" />Median<br />
+                    <input type="range" id="quantile" min="0" max="1", step="0.1" value="0"><label id="quantile-value">quantile: 0</label>
+                </p>
+                <a id="download" href="" download="result.csv">Download</a>
+            </div>
+            <div id="group-svg">
+
+            </div>
+        {% else %}
+            <h3>Gruop File is Not Upload!</h3>
+        {% endif %}
+        </div>
+    </div>
+    <script type="application/javascript">
+        $("#quantile").css("width", "100px")
+        $.get("/list/user", function (response) {
+            var usernames = response.usernames
+            var notGroupMember = Array();
+            {% for member in group_member %}
+                notGroupMember.push('{{ member.username }}')
+            {% endfor %}
+            usernames = usernames.filter((d) => !notGroupMember.includes(d))
+            $("#user-list").html(usernames.map((d) => "<option>" + d + "</option>").join("\n"))
+        })
+        $.get("/get/member", {"group": {{ group_member[0].group.id }}},
+            function (response) {
+                data = "{{ group_member[0].group.upload | safe | escape }}"
+                data = JSON.parse(data)
+                initData = JSON.parse(JSON.stringify(data))
+                const width = 800
+                const height = 600
+                const padding = 60
+                var N = parseInt("{{ group_member[0].group.N }}")
+                const nTop = 2
+                var minX = d3.min(data, (d) => d[0]);
+                var maxX = d3.max(data, (d) => d[0]);
+                var maxx = maxX + N;
+                var minY = d3.min(data, (d) => d[1]);
+                var maxY = d3.max(data, (d) => d[1]);
+                var miny = parseFloat("{{ group_member[0].group.ymin }}");
+                var maxy = parseFloat("{{ group_member[0].group.ymax }}");
+
+                var xScale;
+                var yScale;
+
+                var svg = d3.select("#group-svg")
+                    .append("svg")
+                    .attr("width", width)
+                    .attr("height", height)
+                    .attr('transform', 'translate(10,5)')
+                    .style("border", "1px dashed black")
+                    .style("margin-left", "10px");
+
+                draw(maxx, [miny, maxy], svg)
+
+                function draw(maxx, ySliderValue, svg) {
+                    svg.selectAll("*").remove();
+                    xScale = d3.scaleLinear()
+                        .domain([minX, maxx])
+                        .range([padding, width - padding]);
+
+                    yScale = d3.scaleLinear()
+                        .domain([ySliderValue[0], ySliderValue[1]])
+                        .range([height - padding, padding]);
+
+                    const xAxis = d3.axisBottom(xScale).tickFormat(d3.format("d"));
+                    const yAxis = d3.axisLeft(yScale);
+
+                    svg.append("g")
+                        .attr("transform", "translate(0," + (height - padding) + ")")
+                        .call(xAxis)
+                        .selectAll("text")
+                        .attr("y", 0)
+                        .attr("x", 25)
+                        .attr("dy", ".5em")
+                        .attr("transform", "rotate(90)")
+                        .attr("font-size", "12px")
+                        .attr("text-anchor", "start");
+
+                    svg.append("g")
+                        .attr("transform", "translate(" + (padding) + "," + "0)")
+                        .call(yAxis)
+                        .attr("font-size", "12px");
+
+                    svg.append("path")
+                        .datum(data)
+                        .attr("fill", "none")
+                        .attr("stroke", "steelblue")
+                        .attr("stroke-width", 1.5)
+                        .attr("d", d3.line()
+                                .x(function(d) { return xScale(d[0]) })
+                                .y(function(d) { return yScale(d[1]) })
+                        )
+                    $("#quantile-value").text("quantile: " + $("#quantile").val())
+                     n = response.n
+                    if (n != 0) {
+                        if ($("#user-predict").prop("checked")) {
+                            predicts = response.predicts
+                            {#console.log(predicts.length)#}
+                            for (var i = 0; i < predicts.length; i++) {
+                                if (!predicts[i]) continue
+                                predict = JSON.parse(predicts[i])
+                                {#console.log(predict)#}
+                                len = predict.length
+                                {#console.log(len)#}
+                                predict = predict.slice(len - N - 1, len)
+
+                                svg.append("path")
+                                    .datum(predict)
+                                    .attr("fill", "none")
+                                    .attr("stroke", "red")
+                                    .attr("stroke-width", 1.5)
+                                    .attr("d", d3.line()
+                                        .x(function (d) {
+                                            return xScale(d[0])
+                                        })
+                                        .y(function (d) {
+                                            return yScale(d[1])
+                                        })
+                                    )
+                                console.log(len)
+
+                            }
+                        }
+
+                        if ($("#mean").prop("checked")) {
+                            mean = JSON.parse(response.mean)
+                            len = mean.length
+                            mean = mean.slice(len - N - 1, len)
+                            svg.append("path")
+                                .datum(mean)
+                                .attr("fill", "none")
+                                .attr("stroke", "green")
+                                .attr("stroke-width", 1.5)
+                                .attr("d", d3.line()
+                                    .x(function (d) {
+                                        return xScale(d[0])
+                                    })
+                                    .y(function (d) {
+                                        return yScale(d[1])
+                                    })
+                                )
+                        }
+
+                        if ($("#median").prop("checked")) {
+                            median = JSON.parse(response.median)
+                            len = median.length
+                            median = median.slice(len - N - 1, len)
+                            svg.append("path")
+                                .datum(median)
+                                .attr("fill", "none")
+                                .attr("stroke", "yellow")
+                                .attr("stroke-width", 1.5)
+                                .attr("d", d3.line()
+                                    .x(function (d) {
+                                        return xScale(d[0])
+                                    })
+                                    .y(function (d) {
+                                        return yScale(d[1])
+                                    })
+                                )
+                        }
+
+                        q = $("#quantile").val() * 10
+                        quant = JSON.parse(response.quantile)
+
+                        if (q != 0 && quant.length != 0) {
+                            quantile = quant[q]
+                            len = quantile.length
+                            quantile = quantile.slice(len - N - 1, len)
+                            svg.append("path")
+                                .datum(quantile)
+                                .attr("fill", "none")
+                                .attr("stroke", "gray")
+                                .attr("stroke-width", 1.5)
+                                .attr("d", d3.line()
+                                        .x(function (d) {
+                                            return xScale(d[0])
+                                        })
+                                        .y(function (d) {
+                                            return yScale(d[1])
+                                        })
+                                )
+                        }
+                    }
+                }
+
+
+                $("#mean, #median,  #quantile, #user-predict").change(function () {
+                    draw(maxx, [miny, maxy], svg)
+                })
+
+                $("#download").click(function () {
+                    n = response.n
+                    if (n != 0) {
+                        predicts = response.predicts
+                        usernames = response.usernames
+                        header = ['Username', 'Year', 'Predict']
+                        data = []
+                        for (i=0; i<predicts.length; i++){
+                            if (!predicts[i]) continue
+                            p = JSON.parse(predicts[i])
+                            data = data.concat(p.map((d) => [usernames[i], d[0], d[1]]))
+                        }
+
+                        data.unshift(header)
+                        test_array = data
+                        var csvContent = "data:text/csv;charset=utf-8,";
+                        test_array.forEach(function (infoArray, index) {
+                            dataString = infoArray.join(",");
+                            csvContent += dataString + "\n";
+                        });
+                        var encodedUri = encodeURI(csvContent);
+                        $(this).attr("href", encodedUri)
+                    }else {
+                        JSAlert.alert("None Data to Download!")
+                    }
+                })
+            }
+        )
+    </script>
+</div>
+{% endblock %}

@@ -1,0 +1,614 @@
+{% extends "base.html" %}
+
+{% block title %}visualization{% endblock %}
+
+{% block page_content %}
+<div class="page-header">
+    <h1>Hello, {% if current_user.is_authenticated %}
+        {% if current_user.role.name == "User" %}
+            {{ current_user.username }} group member
+        {% elif current_user.role.name == "Moderator" %}
+            {{ current_user.username }} group leader
+        {% else %}
+            {{ current_user.username }} Administrator
+        {% endif %}
+    {% else %}
+        Stranger
+    {% endif %}!</h1>
+    <div id="User">
+        {% if current_user.is_authenticated and current_user.role.name == "User" %}
+            {% if current_user.group.upload is not none %}
+                <div id="User">
+                    <h3>Please Predict the Results for the Next {{ current_user.group.N }} years</h3>
+                    <div id="config-info">
+                        <div id="coordination">
+                            <div><lable>Coordination: </lable></div>
+                            <div>
+                                <div><lable>X-Axis: </lable><span id="x-value">None</span></div>
+                                <div><lable>Y-Axis: </lable><span id="y-value">None</span></div>
+                            </div>
+                            <div>
+                                <h4> Please choose the way of drawing:</h4>
+                                <input type="radio" id="choice-point" name="draw" value="Choice Point" checked><label>Choice Point</label>
+                                <input type="radio" id="drag" name="draw" value="Drag"><label>Drag</label>
+                            </div>
+                        </div>
+                        <div class="operate">
+                            <button id="reset" type="button">Reset</button>
+                            <button id="submit" type="button">Submit</button>
+{#                            <a id="download" href="" download="result.csv">Download</a>#}
+                        </div>
+                    </div>
+                    <script type="text/javascript">
+
+                        data = "{{ current_user.group.upload | safe | escape }}"
+
+                        data = JSON.parse(data)
+                        initData = JSON.parse(JSON.stringify(data))
+                        const width = 800
+                        const height = 600
+                        const padding = 60
+
+                        const N = parseInt("{{ current_user.group.N }}")
+                        const nTop = 2
+
+                        var minX;
+                        var maxX;
+                        var minY;
+                        var maxY;
+
+                        var xScale;
+                        var yScale;
+                        var line;
+                        var l;
+                        var last;
+                        var from;
+                        var to;
+                        var count = 0;
+                        var invm;
+                        minX = d3.min(data, (d) => d[0])
+                        maxX = d3.max(data, (d) => d[0])
+                        minY = d3.min(data, (d) => d[1])
+                        maxY = d3.max(data, (d) => d[1])
+                        var maxx = maxX + N;
+                        var miny = parseFloat("{{ current_user.group.ymin }}");
+                        var maxy = parseFloat("{{ current_user.group.ymax }}");
+
+
+
+                        var svg = d3.select("#User")
+                            .append("svg")
+                            .attr("width", width)
+                            .attr("height", height)
+                            .attr('transform', 'translate(10,5)')
+                            .style("border", "1px dashed black")
+                            .style("margin-left", "10px")
+                            .on("mousedown", mousedown)
+                            .on("mousemove", mousemove)
+                            .on("mouseup", mouseup);
+
+                        last = data[data.length-1]
+                        draw(maxx, [miny, maxy], svg)
+
+                        function draw(xSliderValue, ySliderValue, svg) {
+                            console.log(data)
+                            svg.selectAll("*").remove();
+                            xScale = d3.scaleLinear()
+                                .domain([minX, xSliderValue])
+                                .range([padding, width - padding]);
+
+                            yScale = d3.scaleLinear()
+                                .domain([ySliderValue[0], ySliderValue[1]])
+                                .range([height - padding, padding]);
+
+                            const xAxis = d3.axisBottom(xScale).tickFormat(d3.format("d"));
+                            const yAxis = d3.axisLeft(yScale);
+
+                            svg.append("g")
+                                .attr("transform", "translate(0," + (height - padding) + ")")
+                                .call(xAxis)
+                                .selectAll("text")
+                                .attr("y", 0)
+                                .attr("x", 25)
+                                .attr("dy", ".5em")
+                                .attr("transform", "rotate(90)")
+                                .attr("font-size", "12px")
+                                .attr("text-anchor", "start");
+
+                            svg.append("g")
+                                .attr("transform", "translate(" + (padding) + "," + "0)")
+                                .call(yAxis)
+                                .attr("font-size", "12px");
+
+                            svg.append("path")
+                                .datum(data)
+                                .attr("fill", "none")
+                                .attr("stroke", "steelblue")
+                                .attr("stroke-width", 1.5)
+                                .attr("d", d3.line()
+                                    .x(function(d) { return xScale(d[0]) })
+                                    .y(function(d) { return yScale(d[1]) })
+                                )
+
+                            line = svg.append("line")
+                                .attr("stroke", "steelblue")
+                                .attr("x1", xScale(last[0]))
+                                .attr("y1", yScale(last[1]))
+                                .attr("x2", xScale(last[0]))
+                                .attr("y2", yScale(last[1]));
+
+                        }
+
+                        function mousedown() {
+                            var m = d3.mouse(this);
+                            if (!(m[0] < padding || m[0] > width - padding || m[1] < padding || m[1] > height - padding)) {
+                                if ($("#choice-point").prop("checked")){
+                                    last = [Math.round(xScale.invert(m[0])), yScale.invert(m[1])]
+                                    data.push(last)
+                                    draw(maxx, [miny, maxy], svg)
+                                }else {
+                                    from = JSON.parse(JSON.stringify(last));
+                                    svg.on("mousemove", mousemove);
+                                }
+
+                            }
+
+                        }
+
+                        function mousemove() {
+                            var m = d3.mouse(this);
+                            invm = [xScale.invert(m[0]), yScale.invert(m[1])]
+                            if ($("#choice-point").prop("checked")) {
+                                if (m[0] < padding || m[0] > width - padding || m[1] < padding || m[1] > height - padding) {
+                                    $("#x-value").text("None")
+                                    $("#y-value").text("None")
+                                    {#line.attr("x1", xScale(last[0]))#}
+                                    {#    .attr("y1", yScale(last[1]))#}
+                                    {#    .attr("x2", xScale(last[0]))#}
+                                    {#    .attr("y2", yScale(last[1]));#}
+                                } else {
+                                    $("#x-value").html(Math.round(invm[0]))
+                                    $("#y-value").html(+((invm[1]).toFixed(2)))
+
+                                    {#line.attr("x1", xScale(last[0]))#}
+                                    {#    .attr("y1", yScale(last[1]))#}
+                                    {#    .attr("x2", m[0])#}
+                                    {#    .attr("y2", m[1]);#}
+                                }
+                            }else {
+                                if (!(m[0] < padding || m[0] > width - padding || m[1] < padding || m[1] > height - padding)) {
+                                    $("#x-value").text(Math.round(invm[0]))
+                                    $("#y-value").text(+((invm[1]).toFixed(2)))
+                                    to = invm
+                                    svg.append("line")
+                                        .attr("class", "drag-line" + count)
+                                        .attr("stroke", "steelblue")
+                                        .attr("x1", xScale(from[0]))
+                                        .attr("y1", yScale(from[1]))
+                                        .attr("x2", xScale(to[0]))
+                                        .attr("y2", yScale(to[1]));
+
+                                    from = JSON.parse(JSON.stringify(to));
+                                }
+                            }
+
+                        }
+
+                        isFair = function(){
+                            lines = svg.selectAll(".drag-line" + count)._groups[0];
+                            lines = Array.from(lines)
+                            pointX = lines[lines.length-1].x2.baseVal.value;
+                            return lines.some(function (line) {
+                                x1 = line.x1.baseVal.value;
+                                x2 = line.x2.baseVal.value;
+
+                                return x2 < x1;
+                            }) || (Math.round(xScale.invert(pointX)) != maxx);
+                        }
+
+                        function mouseup() {
+                            var m = d3.mouse(this);
+                            invm = [xScale.invert(m[0]), yScale.invert(m[1])]
+                            if (!$("#choice-point").prop("checked")) {
+                                fair = isFair();
+                                if (fair || invm[0] > maxx) {
+                                    if (invm[0] > maxx) {
+                                        JSAlert.alert("Please note that do not exceed the range of the axis.")
+                                    }else {
+                                        JSAlert.alert("The line is illegal")
+                                    }
+                                    svg.selectAll(".drag-line" + count).remove()
+                                } else {
+                                    last = [Math.round(invm[0]), invm[1]];
+                                    to = last
+                                    svg.append("line")
+                                        .attr("class", "drag-line" + count)
+                                        .attr("stroke", "steelblue")
+                                        .attr("x1", xScale(from[0]))
+                                        .attr("y1", yScale(from[1]))
+                                        .attr("x2", xScale(to[0]))
+                                        .attr("y2", yScale(to[1]));
+
+                                    lines = svg.selectAll(".drag-line" + count)._groups[0];
+                                    lines = Array.from(lines)
+                                    for (i =1; i <= N; i++){
+                                        x = maxX + i;
+                                        minGap = N
+                                        nearest = null
+                                        for (j=0; j< lines.length; j++){
+                                            x_ = xScale.invert(lines[j].x2.baseVal.value);
+                                            y_ = +((yScale.invert(lines[j].y2.baseVal.value)).toFixed(2));
+                                            gap = Math.abs(x_ - x);
+                                            if (gap < minGap) {
+                                                minGap = gap;
+                                                nearest = [Math.round(x_), y_];
+                                            }
+                                        }
+
+                                        data.push(nearest)
+                                    }
+                                console.log(data)
+                                    {#count += 1;#}
+                                }
+                                svg.on("mousemove", null);
+                            }
+                        }
+
+                        $('#drag').change(function () {
+                            if ($("#drag").prop("checked")){
+                                svg.on("mousemove", null)
+                            }else {
+                                svg.on("mousemove", mousedown)
+                            }
+                            {#draw(maxx, [miny, maxy], svg)#}
+                        })
+
+
+                        $('#reset').click(function(){
+                            data = JSON.parse(JSON.stringify(initData));
+                            last = data[data.length-1]
+                            draw(maxx, [miny, maxy], svg)
+                        });
+
+                        isIll = function(data){
+                            if ((data.length - initData.length) != N) return true
+                            if ((new Set(data.map((d) => d[0]))).size != data.length) return true
+                            return false
+                        }
+
+                        $('#submit').click(function(){
+                            if (isIll(data)){
+                                JSAlert.alert("The submit data is illegal!");
+                                $("#reset").click()
+                            }else {
+                                $.post("/submit/{{ current_user.id }}", {"predict": JSON.stringify(data)})
+                                JSAlert.alert("Submit OK!");
+                            }
+                        });
+                     </script>
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+    <div id="Moderator">
+        {% if current_user.is_authenticated and current_user.role.name == "Moderator" %}
+            <h3>Upload File</h3>
+            <form action="{{ current_user.group.id }}/upload" method="post" enctype="multipart/form-data">
+                <input type = "file" name = "dataset" />
+                <input type = "submit" value = "submit" id = "submit" />
+            </form>
+            <hr>
+            {% if current_user.group.upload is not none %}
+                <div>
+                    <div class="left">
+                        <div class="group-member">
+                            <select class="member" id="member" size="6"></select>
+                        </div>
+
+                        <div id="config-info">
+                            <div id="axis-range-info">
+                                <p>Predict Years: <input id="x-predict" type="text" value="{{ current_user.group.N }}" /></p>
+                                <div id="y-range-info"><label id="y-label">Y: <div id="y-slider-range"></div></label></div>
+                            </div>
+                            <hr>
+                            <div>Please refresh the page to see the results</div>
+                            <p>Data Analysis: <br />
+                                <input type="checkbox" id="user-predict" name="user predict" checked />User Predict<br />
+                                <input type="checkbox" id="mean" name="mean" />Mean<br />
+                                <input type="checkbox" id="median" name="median"  />Median<br />
+                                <input type="range" id="quantile" min="0" max="1", step="0.1" value="0"><label id="quantile-value">quantile: 0</label>
+                            </p>
+                            <a id="download" href="" download="result.csv">Download</a>
+                        </div>
+                        <div id="group-svg">
+
+                        </div>
+                    </div>
+                </div>
+                <script type="application/javascript">
+                    $("#quantile").css("width", "100px")
+                    $.get("/get/member", {"group": {{ current_user.group.id }}},
+                        function (response) {
+                            var usernames = response.usernames
+                            var roles = response.roles
+                            roles = roles.map(function (d) {
+                                if (d == 'User') return "group member"
+                                else return "group leader"
+                            })
+                            $("#member").html(usernames.map((d, i) => "<option>" + d + " || " + roles[i] + "</option>").join("\n"))
+
+                            data = "{{ current_user.group.upload | safe | escape }}"
+                            data = JSON.parse(data)
+                            initData = JSON.parse(JSON.stringify(data))
+                            const width = 800
+                            const height = 600
+                            const padding = 60
+                            var N = parseInt("{{ current_user.group.N }}")
+                            const nTop = 2
+
+                            var minX = d3.min(data, (d) => d[0]);
+                            var maxX = d3.max(data, (d) => d[0]);
+                            var maxx = maxX + N;
+                            var minY = d3.min(data, (d) => d[1]);
+                            var maxY = d3.max(data, (d) => d[1]);
+                            var miny = parseFloat("{{ current_user.group.ymin }}");
+                            var maxy = parseFloat("{{ current_user.group.ymax }}");
+
+                            var xScale;
+                            var yScale;
+
+                            var svg = d3.select("#group-svg")
+                                .append("svg")
+                                .attr("width", width)
+                                .attr("height", height)
+                                .attr('transform', 'translate(10,5)')
+                                .style("border", "1px dashed black")
+                                .style("margin-left", "10px");
+
+                                var ySlider;
+                                ySlider = d3
+                                    .sliderBottom()
+                                    .min(0)
+                                    .max(maxY * nTop)
+                                    .width(300)
+                                    .ticks(5)
+                                    .step(0.5)
+                                    .default([miny, maxy])
+                                    .fill('#2196f3')
+                                    .on('onchange', function(val){
+                                        draw(maxx, val, svg)
+                                        $.post("/config/slider/{{ current_user.group.id }}", {'ymin': val[0], 'ymax': val[1]})
+                                    })
+
+                                var gY = d3
+                                    .select('div#y-slider-range')
+                                    .append('svg')
+                                    .attr('width', 500)
+                                    .attr('height', 100)
+                                    .append('g')
+                                    .attr('transform', 'translate(30,30)');
+
+                                gY.call(ySlider)
+
+                                draw(maxx, ySlider.value(), svg)
+
+                                function draw(maxx, ySliderValue, svg) {
+                                    svg.selectAll("*").remove();
+                                    xScale = d3.scaleLinear()
+                                        .domain([minX, maxx])
+                                        .range([padding, width - padding]);
+
+                                    yScale = d3.scaleLinear()
+                                        .domain([ySliderValue[0], ySliderValue[1]])
+                                        .range([height - padding, padding]);
+
+                                    const xAxis = d3.axisBottom(xScale).tickFormat(d3.format("d"));
+                                    const yAxis = d3.axisLeft(yScale);
+
+                                    svg.append("g")
+                                        .attr("transform", "translate(0," + (height - padding) + ")")
+                                        .call(xAxis)
+                                        .selectAll("text")
+                                        .attr("y", 0)
+                                        .attr("x", 25)
+                                        .attr("dy", ".5em")
+                                        .attr("transform", "rotate(90)")
+                                        .attr("font-size", "12px")
+                                        .attr("text-anchor", "start");
+
+                                    svg.append("g")
+                                        .attr("transform", "translate(" + (padding) + "," + "0)")
+                                        .call(yAxis)
+                                        .attr("font-size", "12px");
+
+                                    svg.append("path")
+                                        .datum(data)
+                                        .attr("fill", "none")
+                                        .attr("stroke", "steelblue")
+                                        .attr("stroke-width", 1.5)
+                                        .attr("d", d3.line()
+                                            .x(function(d) { return xScale(d[0]) })
+                                            .y(function(d) { return yScale(d[1]) })
+                                        )
+
+                                    $("#quantile-value").text("quantile: " + $("#quantile").val())
+                                    n = response.n
+                                    if (n != 0) {
+                                        if ($("#user-predict").prop("checked")) {
+                                            predicts = response.predicts
+                                            {#console.log(predicts.length)#}
+                                            for (var i = 0; i < predicts.length; i++) {
+                                                if (!predicts[i]) continue
+                                                predict = JSON.parse(predicts[i])
+                                                {#console.log(predict)#}
+                                                len = predict.length
+                                                {#console.log(len)#}
+                                                predict = predict.slice(len - N - 1, len)
+
+                                                svg.append("path")
+                                                    .datum(predict)
+                                                    .attr("fill", "none")
+                                                    .attr("stroke", "red")
+                                                    .attr("stroke-width", 1.5)
+                                                    .attr("d", d3.line()
+                                                        .x(function (d) {
+                                                            return xScale(d[0])
+                                                        })
+                                                        .y(function (d) {
+                                                            return yScale(d[1])
+                                                        })
+                                                    )
+                                                console.log(len)
+
+                                            }
+                                        }
+
+                                        if ($("#mean").prop("checked")) {
+                                            mean = JSON.parse(response.mean)
+                                            len = mean.length
+                                            if (len != 0) {
+                                                mean = mean.slice(len - N - 1, len)
+                                                svg.append("path")
+                                                    .datum(mean)
+                                                    .attr("fill", "none")
+                                                    .attr("stroke", "green")
+                                                    .attr("stroke-width", 1.5)
+                                                    .attr("d", d3.line()
+                                                        .x(function (d) {
+                                                            return xScale(d[0])
+                                                        })
+                                                        .y(function (d) {
+                                                            return yScale(d[1])
+                                                        })
+                                                    )
+                                            }
+                                        }
+
+                                        if ($("#median").prop("checked")) {
+                                            median = JSON.parse(response.median)
+                                            len = median.length
+                                            median = median.slice(len - N - 1, len)
+                                            svg.append("path")
+                                                .datum(median)
+                                                .attr("fill", "none")
+                                                .attr("stroke", "yellow")
+                                                .attr("stroke-width", 1.5)
+                                                .attr("d", d3.line()
+                                                    .x(function (d) {
+                                                        return xScale(d[0])
+                                                    })
+                                                    .y(function (d) {
+                                                        return yScale(d[1])
+                                                    })
+                                                )
+                                        }
+                                        q = $("#quantile").val() * 10
+                                        quant = JSON.parse(response.quantile)
+
+                                        if (q != 0 && quant.length != 0) {
+                                            quantile = quant[q]
+                                            len = quantile.length
+                                            quantile = quantile.slice(len - N - 1, len)
+                                            svg.append("path")
+                                                .datum(quantile)
+                                                .attr("fill", "none")
+                                                .attr("stroke", "gray")
+                                                .attr("stroke-width", 1.5)
+                                                .attr("d", d3.line()
+                                                    .x(function (d) {
+                                                        return xScale(d[0])
+                                                    })
+                                                    .y(function (d) {
+                                                        return yScale(d[1])
+                                                    })
+                                                )
+                                        }
+
+                                    }
+                                }
+
+                                $("#x-predict").change(function () {
+                                    N = parseInt($("#x-predict").val())
+                                    maxx = maxX + N
+                                    draw(maxx, ySlider.value(), svg)
+                                    $.post("/config/predict/{{ current_user.group.id }}", {'predict': N})
+                                })
+                                
+                                $("#mean, #median, #quantile, #user-predict").change(function () {
+                                    draw(maxx, ySlider.value(), svg)
+                                })
+
+                                $("#download").click(function () {
+                                    n = response.n
+                                    if (n != 0) {
+                                        predicts = response.predicts
+                                        usernames = response.usernames
+                                        header = ['Username', 'Year', 'Predict']
+                                        data = []
+                                        for (i=0; i<predicts.length; i++){
+                                            if (!predicts[i]) continue
+                                            p = JSON.parse(predicts[i])
+                                            data = data.concat(p.map((d) => [usernames[i], d[0], d[1]]))
+                                        }
+
+                                        data.unshift(header)
+                                        test_array = data
+                                        var csvContent = "data:text/csv;charset=utf-8,";
+                                        test_array.forEach(function (infoArray, index) {
+                                            dataString = infoArray.join(",");
+                                            csvContent += dataString + "\n";
+                                        });
+                                        var encodedUri = encodeURI(csvContent);
+                                        $(this).attr("href", encodedUri)
+                                    }else {
+                                        JSAlert.alert("None Data to Download!")
+                                    }
+                                })
+
+                            }
+                    )
+                </script>
+            {% endif %}
+        {% endif %}
+    </div>
+    <div id="Administrator">
+        {% if current_user.is_authenticated and current_user.role.name == "Administrator" %}
+            <div id="add-group">
+            <div><h2>Add New Group</h2></div>
+                <form action="add/group" method="post" enctype="multipart/form-data">
+                    <label>Group Admin:</label><select name="user-list" id="user-list"></select>
+                    <input type = "submit" value = "Add Group" id = "add-group" />
+                </form>
+            </div>
+            <hr>
+            <div><h2>Delete Group</h2></div>
+                <form action="delete/group" method="post" enctype="multipart/form-data">
+                    <label>Group:</label><select name="group-list" id="group-list"></select>
+                    <input type = "submit" value = "Delete Group" id = "delete-group" />
+                </form>
+            </div>
+            <hr>
+            <div><h2>The Group List</h2></div>
+            <div id="group-container">
+            </div>
+            <script type="application/javascript">
+                    $.get("/list/user", function (response) {
+                        var usernames = response.usernames
+                        $("#user-list").html(usernames.map((d) => "<option>" + d + "</option>").join("\n"))
+                    })
+                    $.get("/list/group", function (response) {
+                        var adminnames = response.adminnames
+
+                        $("#group-list").html(adminnames.map((d) => "<option>" + d + "</option>").join("\n"))
+
+                        $("#group-container").html(adminnames.map((d, i) => "<div><a class='group-item'>" + (i+1) + ". " + d + "</a></div>").join("\n"))
+                        $(".group-item").on('click', function () {
+                            adminname = $(this).text()
+                            $(this).attr('href', "/group?adminname=" + adminname)
+                        });
+                    })
+                </script>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
