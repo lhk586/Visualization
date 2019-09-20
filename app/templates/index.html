@@ -529,9 +529,13 @@
 
                                 $("#x-predict").change(function () {
                                     N = parseInt($("#x-predict").val())
-                                    maxx = maxX + N
-                                    draw(maxx, ySlider.value(), svg)
-                                    $.post("/config/predict/{{ current_user.group.id }}", {'predict': N})
+                                    if (N < 1 || N >50){
+                                        window.location.reload()
+                                    }else {
+                                        maxx = maxX + N
+                                        draw(maxx, ySlider.value(), svg)
+                                        $.post("/config/predict/{{ current_user.group.id }}", {'predict': N})
+                                    }
                                 })
                                 
                                 $("#mean, #median, #quantile, #user-predict").change(function () {
