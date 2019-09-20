@@ -33,6 +33,13 @@ def create_app(config_name):
     app.register_blueprint(auth_blueprint, url_prefix='/auth')
 
     with app.app_context():
+        db.drop_all()
         db.create_all()
+        admin = Role(name='Administrator')
+        user_admin = User(username='john', email="1342498120@qq.com", role=admin)
+        user_admin.password = os.environ.get('ADMIN_PASSWORD')
+        user_admin.confirmed = True
+        db.session.add(user_admin)
+        db.session.commit()
 
     return app
