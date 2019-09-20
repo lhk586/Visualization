@@ -11,7 +11,6 @@ class NameForm(FlaskForm):
     submit = SubmitField('Submit')
 
 
-# 编辑用户资料资料表单
 class EditProfileForm(FlaskForm):
     name = StringField('Real name', validators=[Length(0, 64)])
     location = StringField('Location', validators=[Length(0, 64)])
@@ -19,7 +18,6 @@ class EditProfileForm(FlaskForm):
     submit = SubmitField('Submit')
 
 
-# 编辑管理员资料表单
 class EditProfileAdminForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Length(1, 64),
                                              Email()])
