@@ -6,6 +6,8 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from config import config
 
+from app.models import Role, User
+
 import os
 
 bootstrap = Bootstrap()
