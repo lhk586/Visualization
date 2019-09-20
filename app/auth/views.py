@@ -9,7 +9,6 @@ from .forms import LoginForm, RegistrationForm, ChangePasswordForm,\
     PasswordResetRequestForm, PasswordResetForm, ChangeEmailForm
 
 
-# 登陆前验证
 @auth.before_app_request
 def before_request():
     if current_user.is_authenticated:
@@ -21,7 +20,6 @@ def before_request():
             return redirect(url_for('auth.unconfirmed'))
 
 
-# 邮箱账号未进行验证处理路由
 @auth.route('/unconfirmed')
 def unconfirmed():
     if current_user.is_anonymous or current_user.confirmed:
@@ -29,7 +27,6 @@ def unconfirmed():
     return render_template('auth/unconfirmed.html')
 
 
-# 登录路由
 @auth.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
@@ -45,7 +42,6 @@ def login():
     return render_template('auth/login.html', form=form)
 
 
-# 退出登录路由
 @auth.route('/logout')
 @login_required
 def logout():
@@ -54,7 +50,6 @@ def logout():
     return redirect(url_for('main.index'))
 
 
-# 注册路由
 @auth.route('/register', methods=['GET', 'POST'])
 def register():
     form = RegistrationForm()
@@ -75,7 +70,6 @@ def register():
     return render_template('auth/register.html', form=form)
 
 
-# 验证路由
 @auth.route('/confirm/<token>')
 @login_required
 def confirm(token):
@@ -89,7 +83,6 @@ def confirm(token):
     return redirect(url_for('main.index'))
 
 
-# 发送验证邮件
 @auth.route('/confirm')
 @login_required
 def resend_confirmation():
@@ -100,7 +93,6 @@ def resend_confirmation():
     return redirect(url_for('main.index'))
 
 
-# 改变密码路由
 @auth.route('/change-password', methods=['GET', 'POST'])
 @login_required
 def change_password():
@@ -117,7 +109,6 @@ def change_password():
     return render_template("auth/change_password.html", form=form)
 
 
-# 改变密码重置邮箱验证请求
 @auth.route('/reset', methods=['GET', 'POST'])
 def password_reset_request():
     if not current_user.is_anonymous:
@@ -136,7 +127,6 @@ def password_reset_request():
     return render_template('auth/reset_password.html', form=form)
 
 
-# 密码重置
 @auth.route('/reset/<token>', methods=['GET', 'POST'])
 def password_reset(token):
     if not current_user.is_anonymous:
@@ -152,7 +142,6 @@ def password_reset(token):
     return render_template('auth/reset_password.html', form=form)
 
 
-# 修改邮箱请求路由
 @auth.route('/change_email', methods=['GET', 'POST'])
 @login_required
 def change_email_request():
@@ -172,7 +161,6 @@ def change_email_request():
     return render_template("auth/change_email.html", form=form)
 
 
-# 修改邮箱路由
 @auth.route('/change_email/<token>')
 @login_required
 def change_email(token):
