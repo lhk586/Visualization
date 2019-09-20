@@ -11,8 +11,8 @@ class Config:
     MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     FLASKY_MAIL_SUBJECT_PREFIX = '[Flasky]'
-    MAIL_SENDER = "Flasky<463966726@qq.com>"
-    FLASKY_ADMIN = "Flasky"
+    MAIL_SENDER = "Flasky<1342498119@qq.com>"
+    FLASKY_ADMIN = "463966726@qq.com"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     @staticmethod
