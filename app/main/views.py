@@ -12,18 +12,15 @@ import csv, io
 import numpy as np
 
 
-# 主页路由
 @main.route('/')
 def index():
     return render_template('index.html')
 
-# 用户基本信息资料路由
 @main.route('/user/<username>')
 def user(username):
     user = User.query.filter_by(username=username).first_or_404()
     return render_template('user.html', user=user)
 
-# 编辑资料路由
 @main.route('/edit-profile', methods=['GET', 'POST'])
 @login_required
 def edit_profile():
@@ -41,7 +38,7 @@ def edit_profile():
     form.about_me.data = current_user.about_me
     return render_template('edit_profile.html', form=form)
 
-# 管理员编辑用户资料路由
+
 @main.route('/edit-profile/<int:id>', methods=['GET', 'POST'])
 @login_required
 @admin_required
@@ -69,7 +66,7 @@ def edit_profile_admin(id):
     form.about_me.data = user.about_me
     return render_template('edit_profile.html', form=form, user=user)
 
-# 组管理员上传数据文件
+
 @main.route('/<int:group_id>/upload', methods=["POST"])
 @login_required
 def upload_csv(group_id):
@@ -94,7 +91,7 @@ def upload_csv(group_id):
     db.session.commit()
     return redirect('/')
 
-# 用户提交结果
+
 @main.route('/submit/<int:user_id>', methods=["POST"])
 @login_required
 def submit_result(user_id):
@@ -105,7 +102,7 @@ def submit_result(user_id):
     db.session.commit()
     return redirect('/')
 
-# 得到一组中的用户成员,在组用户界面中显示结果
+
 @main.route('/get/member')
 def get_member():
     group = Group.query.get(int(request.values['group']))
@@ -135,21 +132,20 @@ def get_member():
                     'mean': mean, 'median': median, 'quantile': quantile})
 
 
-# 得到所有非管理员用户列表,创建新的组是显示
 @main.route('/list/user')
 def get_user_list():
     user_role_list = User.query.filter_by(role=Role.query.filter_by(name="User").first()).all()
     usernames = [user.username for user in user_role_list]
     return jsonify({'usernames': usernames})
 
-# 得到所有组管理员列表,在系统管理员界面显示
+
 @main.route('/list/group')
 def get_group_admin():
     group_admin_list = User.query.filter_by(role=Role.query.filter_by(name="Moderator").first()).order_by().all()
     adminnames = [admin.username for admin in group_admin_list]
     return jsonify({"adminnames": adminnames})
 
-# 创建新组路由
+
 @main.route('/add/group', methods=["POST"])
 def add_group():
     group = Group()
@@ -187,10 +183,9 @@ def delete_member():
 
     db.session.add(u)
     db.session.commit()
-    return redirect('/group')
+    return redirect('/')
 
 
-# 添加用户到组
 @main.route('/add/member/<int:group_id>', methods=["POST"])
 def add_member(group_id):
     group = Group.query.get(group_id)
@@ -201,7 +196,7 @@ def add_member(group_id):
     db.session.commit()
     return redirect('/')
 
-# 系统管理员显示组列表,点击进去显示的内容处理
+
 @main.route('/group')
 def group():
     query = parse_qs(request.query_string.decode('utf8'))
